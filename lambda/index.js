@@ -1,32 +1,32 @@
 // index.js
-import https from 'https';
-import querystring from 'querystring';
-import neo4j from 'neo4j-driver';
+const https = require('https');
+const querystring = require('querystring');
+const neo4j = require('neo4j-driver');
 
-export async function handler(event) {
+exports.handler = async (event) => {
     try {
         const token = await getAuthToken();
-        // Here you would use the token to authenticate and interact with Neo4j.
-        // The following is a placeholder for where you would add your logic:
-        const driver = neo4j.driver("your-neo4j-uri", neo4j.auth.bearer(token));
+        const neo4jUri = 'neo4j+s://5159a76c.databases.neo4j.io';
+        const user = 'neo4j';  // This is usually a placeholder and should be replaced or obtained securely
+        const password = 'iMPDP8-5B4wYGnQRNGIBKP4M7dEoR1EJ9APqT7YiDso';  // This should be obtained securely
+
+        const driver = neo4j.driver(neo4jUri, neo4j.auth.basic(user, password));
         const session = driver.session();
 
         try {
-            // Replace the below query with your actual query logic.
-            const result = await session.run('MATCH (n) RETURN n LIMIT 10');
+            const personName = "Alice";  // Replace or obtain dynamically as needed
+            const result = await session.run('CREATE (a:Person {name: $name}) RETURN a', { name: personName });
 
-            // Process the results of the query here.
-            // For now, we'll just log the number of records found.
-            console.log(`Found ${result.records.length} records.`);
+            const singleRecord = result.records[0];
+            const node = singleRecord.get(0);
+            console.log(node.properties.name); // Log the new person's name
 
         } finally {
-            await session.close();
+            await session.close();  // Close the session
         }
 
-        // Close the driver connection when you're finished with it.
-        await driver.close();
+        await driver.close();  // Close the driver connection
 
-        // Return a successful response
         return {
             statusCode: 200,
             body: JSON.stringify({ message: "Query executed successfully" }),
@@ -41,9 +41,9 @@ export async function handler(event) {
     }
 };
 
-async function getAuthToken() {
-    const clientId = 'fL2FS9xHgpdKJprbNFxlJl46wUr37Zz9'; // Replace with your ClientID
-    const clientSecret = '0MQSWgNZZgX0ghsCvTByrzwtZ8TLXeoNcT2FjIwmnAFz0TZENsVBgFIwdOlEr6vC'; // Replace with your Client Secret
+function getAuthToken() {
+    const clientId = 'fL2FS9xHgpdKJprbNFxlJl46wUr37Zz9';  // Replace with your ClientID
+    const clientSecret = '0MQSWgNZZgX0ghsCvTByrzwtZ8TLXeoNcT2FjIwmnAFz0TZENsVBgFIwdOlEr6vC';  // Replace with your Client Secret
 
     const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
     const postData = querystring.stringify({ grant_type: 'client_credentials' });
