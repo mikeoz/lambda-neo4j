@@ -2,27 +2,24 @@
 const neo4j = require('neo4j-driver');
 
 exports.handler = async (event) => {
-    const uri = 'neo4j+s://5159a76c.databases.neo4j.io';
-    const user = 'neo4j';
-    const password = 'iMPDP8-5B4wYGnQRNGIBKP4M7dEoR1EJ9APqT7YiDso';
+    // Hardcoded Neo4j connection credentials
+    const neo4jUri = 'neo4j+s://5159a76c.databases.neo4j.io';
+    const user = 'neo4j';  
+    const password = 'iMPDP8-5B4wYGnQRNGIBKP4M7dEoR1EJ9APqT7YiDso';  
 
-    const driver = neo4j.driver(uri, neo4j.auth.basic(user, password));
+    // Connect to the Neo4j database
+    const driver = neo4j.driver(neo4jUri, neo4j.auth.basic(user, password));
     const session = driver.session();
 
     try {
-        // Check if event.body is undefined or not a valid JSON
-        if (!event.body || typeof event.body !== 'string') {
-            throw new Error('The function expects a valid JSON string in the body of the event.');
+        // Parse the incoming data
+        if (!event.body) {
+            throw new Error('No data provided in the request body');
         }
-
         const data = JSON.parse(event.body);
         const { person_id, first_name, middle_name, last_name } = data;
 
-        // Validate the required data fields
-        if (!person_id || !first_name || !last_name) {
-            throw new Error('Missing required person data fields.');
-        }
-
+        // Run a Cypher query to create a new person node
         const result = await session.run(
             'CREATE (p:Person {person_id: $person_id, first_name: $first_name, middle_name: $middle_name, last_name: $last_name}) RETURN p',
             { person_id, first_name, middle_name, last_name }
@@ -46,8 +43,9 @@ exports.handler = async (event) => {
     } catch (error) {
         console.error("Error executing the Lambda function:", error);
 
-        await session.close();
-        await driver.close();
+        // Close the session and driver in case of an error
+        if (session) await session.close();
+        if (driver) await driver.close();
 
         return {
             statusCode: 500,
