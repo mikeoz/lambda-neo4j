@@ -1,35 +1,39 @@
 // index.js
-const https = require('https');
-const querystring = require('querystring');
 const neo4j = require('neo4j-driver');
 
 exports.handler = async (event) => {
+    const uri = 'neo4j+s://5159a76c.databases.neo4j.io';
+    const user = 'neo4j';
+    const password = 'iMPDP8-5B4wYGnQRNGIBKP4M7dEoR1EJ9APqT7YiDso';
+
+    const driver = neo4j.driver(uri, neo4j.auth.basic(user, password));
+    const session = driver.session();
+
     try {
-        const token = await getAuthToken();
-        const neo4jUri = 'neo4j+s://5159a76c.databases.neo4j.io';
-        const user = 'neo4j';  // This is usually a placeholder and should be replaced or obtained securely
-        const password = 'iMPDP8-5B4wYGnQRNGIBKP4M7dEoR1EJ9APqT7YiDso';  // This should be obtained securely
+        // Parse the incoming data
+        const data = JSON.parse(event.body);
+        const { person_id, first_name, middle_name, last_name } = data;
 
-        const driver = neo4j.driver(neo4jUri, neo4j.auth.basic(user, password));
-        const session = driver.session();
+        // Create a new person node
+        const result = await session.run(
+            'CREATE (p:Person {person_id: $person_id, first_name: $first_name, middle_name: $middle_name, last_name: $last_name}) RETURN p',
+            { person_id, first_name, middle_name, last_name }
+        );
 
-        try {
-            const personName = "Alice";  // Replace or obtain dynamically as needed
-            const result = await session.run('CREATE (a:Person {name: $name}) RETURN a', { name: personName });
+        await session.close();
+        await driver.close();
 
-            const singleRecord = result.records[0];
-            const node = singleRecord.get(0);
-            console.log(node.properties.name); // Log the new person's name
-
-        } finally {
-            await session.close();  // Close the session
+        // If no records are created, return a different message
+        if (result.records.length === 0) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ message: "No new person was added" }),
+            };
         }
-
-        await driver.close();  // Close the driver connection
 
         return {
             statusCode: 200,
-            body: JSON.stringify({ message: "Query executed successfully" }),
+            body: JSON.stringify({ message: "New Person Added" }),
         };
 
     } catch (error) {
@@ -40,43 +44,3 @@ exports.handler = async (event) => {
         };
     }
 };
-
-function getAuthToken() {
-    const clientId = 'fL2FS9xHgpdKJprbNFxlJl46wUr37Zz9';  // Replace with your ClientID
-    const clientSecret = '0MQSWgNZZgX0ghsCvTByrzwtZ8TLXeoNcT2FjIwmnAFz0TZENsVBgFIwdOlEr6vC';  // Replace with your Client Secret
-
-    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-    const postData = querystring.stringify({ grant_type: 'client_credentials' });
-
-    return new Promise((resolve, reject) => {
-        const options = {
-            hostname: 'api.neo4j.io',
-            port: 443,
-            path: '/oauth/token',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Authorization': `Basic ${auth}`
-            }
-        };
-
-        const req = https.request(options, (res) => {
-            let data = '';
-
-            res.on('data', (chunk) => {
-                data += chunk;
-            });
-
-            res.on('end', () => {
-                resolve(JSON.parse(data).access_token);
-            });
-        });
-
-        req.on('error', (e) => {
-            reject(e);
-        });
-
-        req.write(postData);
-        req.end();
-    });
-}
